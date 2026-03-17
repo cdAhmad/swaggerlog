@@ -34,9 +34,9 @@ import kotlin.time.Duration.Companion.hours
 // 自定义线程安全的日志拦截器
 class SwiggerLoggingInterceptor constructor(
     val baseUrl: String,
-    swaggerDocUrl: String,
+    val swaggerDocUrl: String,
     val deobfus: Boolean,
-    contextProvider: () -> Context
+    val contextProvider: () -> Context?
 ) : Interceptor {
     companion object {
         private val UTF8 = Charset.forName("UTF-8")
@@ -46,7 +46,7 @@ class SwiggerLoggingInterceptor constructor(
 
         fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
             netLogSwitch: Boolean,
-            url: String, contextProvider: () -> Context
+            url: String, contextProvider: () -> Context?
         ): OkHttpClient.Builder {
             if (netLogSwitch.not()) {
                 return this
@@ -64,7 +64,15 @@ class SwiggerLoggingInterceptor constructor(
 
     }
 
-    private val swaggerDocCache by lazy { SwaggerDocCache(contextProvider.invoke(), swaggerDocUrl) }
+    private var swaggerDocCache: SwaggerDocCache? = null
+
+    private fun getSwaggerDocCache(): SwaggerDocCache? {
+        return swaggerDocCache ?: contextProvider.invoke()?.let {
+            SwaggerDocCache(it, swaggerDocUrl).also { cache ->
+                swaggerDocCache = cache
+            }
+        }
+    }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -75,14 +83,14 @@ class SwiggerLoggingInterceptor constructor(
         val requestId = String.format("%06d", currentId)
         val currentTag = "${tag}_$requestId"
         // ✅ 触发缓存检查 & 后台刷新（幂等、线程安全）
-        swaggerDocCache.ensureFresh()
+        getSwaggerDocCache()?.ensureFresh()
         // === 尝试获取 Swagger 摘要（仅内存读取，绝不阻塞）===
         var swaggerSummary: String? = null
         val path = request.url.encodedPath
         val method = request.method.lowercase()
 
         // 只读访问，无网络、无锁、无 suspend
-        val swaggerDoc = swaggerDocCache.getCachedDoc()
+        val swaggerDoc = getSwaggerDocCache()?.getCachedDoc()
         swaggerSummary =
             swaggerDoc?.paths?.get(path)?.get(method)?.richSummary(baseUrl)
         // === 安全获取请求体摘要 ===
