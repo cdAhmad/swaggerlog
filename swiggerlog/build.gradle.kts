@@ -55,7 +55,7 @@ afterEvaluate {
                 // 坐标配置
                 groupId = "com.github.cdAhmad"
                 artifactId = "swagger-interceptor"
-                version = "1.0.2"
+                version = "1.0.3"
 
                 // 核心：从 Android release 组件导入
                 // KTS 语法：components["release"]
