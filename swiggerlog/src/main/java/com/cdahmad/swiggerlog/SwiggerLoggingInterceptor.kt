@@ -43,7 +43,7 @@ class SwiggerLoggingInterceptor(
 
         private var id = AtomicInteger(0)
 
-        fun OkHttpClient.Builder.addThreadSafeLoggingInterceptor(
+        fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
             netLogSwitch: Boolean,
             application: Application,
             url: String
@@ -240,7 +240,11 @@ class SwaggerDocCache(
     private var memoryCache: Pair<SwaggerDoc, Long>? = null // (doc, saveTime)
 
     private val gson = Gson()
-    private val cacheFile by lazy { File(context.cacheDir, CACHE_FILE_NAME) }
+    // ✅ 安全：每次调用时才访问 context.cacheDir
+    private fun getCacheFile(): File {
+        return File(context.cacheDir, CACHE_FILE_NAME)
+    }
+
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val isRefreshing = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -277,8 +281,8 @@ class SwaggerDocCache(
 
     private fun readFromFile(): Pair<SwaggerDoc, Long>? {
         return try {
+            val cacheFile = getCacheFile() // ← 修改这里
             if (!cacheFile.exists()) return null
-
             val json = cacheFile.readText(Charsets.UTF_8)
             if (json.isBlank()) {
                 cacheFile.delete()
@@ -295,7 +299,7 @@ class SwaggerDocCache(
             wrapper.swaggerDoc to wrapper.timestamp
         } catch (e: Exception) {
             Log.w(tag, "Failed to parse cache file, deleting it", e)
-            cacheFile.delete()
+            getCacheFile().delete() // ← 修改这里
             null
         }
     }
@@ -340,7 +344,7 @@ class SwaggerDocCache(
                             val tempFile = File(context.cacheDir, "${CACHE_FILE_NAME}.tmp")
                             tempFile.writeText(gson.toJson(wrapper), Charsets.UTF_8)
                             // 注意：renameTo 在部分 Android 设备上可能失败（跨分区），但 cacheDir 内通常安全
-                            if (tempFile.renameTo(cacheFile)) {
+                            if (tempFile.renameTo(getCacheFile())) {
                                 memoryCache = newDoc to now
                                 success = true
                                 Log.d(tag, "Successfully refreshed and cached Swagger doc")
