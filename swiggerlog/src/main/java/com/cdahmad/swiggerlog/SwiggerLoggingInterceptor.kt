@@ -2,6 +2,7 @@ package com.cdahmad.swiggerlog
 
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -31,11 +32,11 @@ import kotlin.time.Duration.Companion.hours
 
 
 // 自定义线程安全的日志拦截器
-class SwiggerLoggingInterceptor(
-    application: Application,
+class SwiggerLoggingInterceptor constructor(
     val baseUrl: String,
     swaggerDocUrl: String,
-    val deobfus: Boolean
+    val deobfus: Boolean,
+    contextProvider: () -> Context
 ) : Interceptor {
     companion object {
         private val UTF8 = Charset.forName("UTF-8")
@@ -45,18 +46,17 @@ class SwiggerLoggingInterceptor(
 
         fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
             netLogSwitch: Boolean,
-            application: Application,
-            url: String
+            url: String, contextProvider: () -> Context
         ): OkHttpClient.Builder {
             if (netLogSwitch.not()) {
                 return this
             }
             addInterceptor(
                 SwiggerLoggingInterceptor(
-                    application,
                     url,
                     "${url}v2/api-docs",
-                    true
+                    true,
+                    contextProvider,
                 )
             )
             return this
@@ -64,7 +64,7 @@ class SwiggerLoggingInterceptor(
 
     }
 
-    private val swaggerDocCache = SwaggerDocCache(application, swaggerDocUrl)
+    private val swaggerDocCache by lazy { SwaggerDocCache(contextProvider.invoke(), swaggerDocUrl) }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -221,8 +221,8 @@ class SwiggerLoggingInterceptor(
 // =============================================
 // 🔒 私有缓存管理器：内存 + 文件 + TTL + 后台刷新
 // =============================================
-class SwaggerDocCache(
-    val context: Application,
+private class SwaggerDocCache(
+    val context: Context,
     val swaggerDocUrl: String,
     val ttlHours: Int = 24
 ) {
@@ -240,6 +240,7 @@ class SwaggerDocCache(
     private var memoryCache: Pair<SwaggerDoc, Long>? = null // (doc, saveTime)
 
     private val gson = Gson()
+
     // ✅ 安全：每次调用时才访问 context.cacheDir
     private fun getCacheFile(): File {
         return File(context.cacheDir, CACHE_FILE_NAME)
