@@ -224,7 +224,7 @@ class SwiggerLoggingInterceptor constructor(
                 }
             }
             msgList.forEach {
-                printLongLog( currentTag, it)
+                printLongLog(it, currentTag)
             }
 
         } catch (e: Exception) {
