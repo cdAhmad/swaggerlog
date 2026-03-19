@@ -5,9 +5,7 @@ plugins {
 
 android {
     namespace = "com.cdahmad.swiggerlog"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk =35
 
     defaultConfig {
         minSdk = 23
@@ -15,7 +13,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -29,6 +26,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     // 配置发布变体
     publishing {
         singleVariant("release") {

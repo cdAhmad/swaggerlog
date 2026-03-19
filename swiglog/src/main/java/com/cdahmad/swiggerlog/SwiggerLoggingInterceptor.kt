@@ -1,5 +1,5 @@
-import android.content.Context
-import android.util.Log
+package com.cdahmad.swiggerlog
+
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
@@ -25,6 +25,8 @@ import java.io.StringWriter
 import java.lang.reflect.Parameter
 import java.net.URI
 import java.nio.charset.Charset
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.hours
 
@@ -33,13 +35,15 @@ import kotlin.time.Duration.Companion.hours
  * @param netLogSwitch 是否开启日志记录
  * @param format 是否格式化输出
  * @param url 基础 URL，用于获取 Swagger 文档
- * @param contextProvider 上下文提供器，用于获取应用上下文
+ * @param cacheFile 文件工厂，用于获取缓存文件
+ * @param log 日志记录函数，用于记录请求和响应
  * */
 
 fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
     netLogSwitch: Boolean,
     format: Boolean = false,
-    url: String, contextProvider: () -> Context?
+    url: String, cacheFile: () -> File?,
+    log: (Int, String, String) -> Unit
 ): OkHttpClient.Builder {
     if (netLogSwitch.not()) {
         return this
@@ -50,7 +54,8 @@ fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
             "${url}v2/api-docs",
             true,
             format,
-            contextProvider,
+            cacheFile,
+            log
         )
     )
     return this
@@ -62,7 +67,8 @@ class SwiggerLoggingInterceptor constructor(
     val swaggerDocUrl: String,
     val deobfus: Boolean,
     val format: Boolean = false,
-    val contextProvider: () -> Context?
+    val cacheFile: () -> File?,
+    val log: (Int, String, String) -> Unit
 ) : Interceptor {
     companion object {
         private val UTF8 = Charset.forName("UTF-8")
@@ -78,9 +84,7 @@ class SwiggerLoggingInterceptor constructor(
     private fun getSwaggerDocCache(): SwaggerDocCache? {
         if (swaggerDocCache != null) return swaggerDocCache
 
-        // 即使 context 为 null，也创建一个仅内存缓存的实例
-        val context = contextProvider.invoke()
-        swaggerDocCache = SwaggerDocCache(context, swaggerDocUrl).also {
+        swaggerDocCache = SwaggerDocCache(cacheFile, log, swaggerDocUrl).also {
             // 首次访问时触发后台加载（如果有网络权限）
             it.ensureFresh()
         }
@@ -134,12 +138,13 @@ class SwiggerLoggingInterceptor constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.w(currentTag, "-> Failed to inspect request body", e)
+            e.printStackTrace()
+            log(1, currentTag, "-> Failed to inspect request body")
             requestBodySummary = "<Request body inspection failed>"
         }
 
         // 只记录请求URL
-        Log.d(currentTag, "-> ${request.method} ${request.url}")
+        log(0, currentTag, "-> ${request.method} ${request.url}")
 
         val response = chain.proceed(request)
         val duration = System.currentTimeMillis() - startTime
@@ -220,7 +225,8 @@ class SwiggerLoggingInterceptor constructor(
 
             }
         } catch (e: Exception) {
-            Log.w(currentTag, "<- Error reading response body", e)
+            e.printStackTrace()
+            log(1, currentTag, "<- Error reading response body")
         }
 
         return response
@@ -234,13 +240,13 @@ class SwiggerLoggingInterceptor constructor(
         for (line in lines) {
             if (line.length <= maxLength) {
                 // 整行能放下，直接打印
-                Log.d(tag, line)
+                log(0, tag, line)
             } else {
                 // 单行过长（如超长数组/字符串），再按 maxLength 分段
                 var index = 0
                 while (index < line.length) {
                     val endIndex = (index + maxLength).coerceAtMost(line.length)
-                    Log.d(tag, line.substring(index, endIndex))
+                    log(0, tag, line.substring(index, endIndex))
                     index += maxLength
                 }
             }
@@ -254,7 +260,8 @@ class SwiggerLoggingInterceptor constructor(
 // 🔒 私有缓存管理器：内存 + 文件 + TTL + 后台刷新
 // =============================================
 private class SwaggerDocCache(
-    val context: Context?,
+    val cacheFile: () -> File?,
+    val log: (Int, String, String) -> Unit,
     val swaggerDocUrl: String,
     val ttlHours: Int = 24
 ) {
@@ -275,11 +282,11 @@ private class SwaggerDocCache(
 
     // ✅ 安全：每次调用时才访问 context.cacheDir
     private fun getCacheFile(): File? {
-        return context?.let { File(it.cacheDir, CACHE_FILE_NAME) }
+        return cacheFile()?.let { File(it, CACHE_FILE_NAME) }
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val isRefreshing = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val isRefreshing = AtomicBoolean(false)
 
     // ✅ 外部调用：确保缓存是“新鲜”的（可能触发后台刷新）
     fun ensureFresh() {
@@ -323,14 +330,15 @@ private class SwaggerDocCache(
 
             val wrapper = gson.fromJson(json, SwaggerCacheWrapper::class.java)
             if (wrapper.timestamp <= 0 || wrapper.swaggerDoc == null) {
-                Log.w(tag, "Invalid cache content: timestamp=${wrapper.timestamp}, doc=null")
+                log(1, tag, "Invalid cache content: timestamp=${wrapper.timestamp}, doc=null")
                 cacheFile.delete()
                 return null
             }
 
             wrapper.swaggerDoc to wrapper.timestamp
         } catch (e: Exception) {
-            Log.w(tag, "Failed to parse cache file, deleting it", e)
+            e.printStackTrace()
+            log(1, tag, "Failed to parse cache file, deleting it")
             getCacheFile()?.delete() // ← 修改这里
             null
         }
@@ -349,23 +357,23 @@ private class SwaggerDocCache(
             var newDoc: SwaggerDoc? = null
             var success = false
             try {
-                Log.d(tag, "Refreshing Swagger doc from network")
+                log(0, tag, "Refreshing Swagger doc from network")
                 val client = OkHttpClient.Builder()
-                    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                    .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(60, TimeUnit.SECONDS)
                     .build()
 
                 val request = Request.Builder()
                     .url(swaggerDocUrl)
                     .build()
 
-                Log.d(tag, "Request URL: ${request.url}")
+                log(0, tag, "Request URL: ${request.url}")
                 response = client.newCall(request).execute()
 
                 if (response.isSuccessful) {
                     val bodyString = response.body?.string()
                     if (bodyString.isNullOrBlank()) {
-                        Log.w(tag, "Received empty or blank response body")
+                        log(1, tag, "Received empty or blank response body")
                     } else {
                         newDoc = gson.fromJson(bodyString, SwaggerDoc::class.java)
                         if (newDoc != null) {
@@ -374,35 +382,38 @@ private class SwaggerDocCache(
                             memoryCache = newDoc to now
 
                             // 仅当有 Context 时才尝试写入磁盘
-                            context?.let { ctx ->
+                            cacheFile()?.let { ctx ->
                                 val wrapper =
                                     SwaggerCacheWrapper(timestamp = now, swaggerDoc = newDoc)
-                                val tempFile = File(ctx.cacheDir, "${CACHE_FILE_NAME}.tmp")
+                                val tempFile = File(ctx, "${CACHE_FILE_NAME}.tmp")
                                 try {
                                     tempFile.writeText(gson.toJson(wrapper), Charsets.UTF_8)
                                     if (tempFile.renameTo(getCacheFile()!!)) {
-                                        Log.d(
+                                        log(
+                                            0,
                                             tag,
                                             "Successfully refreshed and cached Swagger doc to disk"
                                         )
                                     } else {
-                                        Log.e(tag, "Failed to rename temp cache file")
+                                        log(1, tag, "Failed to rename temp cache file")
                                         tempFile.delete()
                                     }
                                 } catch (e: Exception) {
-                                    Log.e(tag, "Failed to write cache file", e)
+                                    e.printStackTrace()
+                                    log(1, tag, "Failed to write cache file")
                                     tempFile.delete()
                                 }
                             }
                         } else {
-                            Log.w(tag, "Parsed SwaggerDoc is null")
+                            log(1, tag, "Parsed SwaggerDoc is null")
                         }
                     }
                 } else {
-                    Log.w(tag, "HTTP request failed: ${response.code} ${response.message}")
+                    log(1, tag, "HTTP request failed: ${response.code} ${response.message}")
                 }
             } catch (e: Exception) {
-                Log.e(tag, "Exception during Swagger doc refresh", e)
+                e.printStackTrace()
+                log(1, tag, "Exception during Swagger doc refresh")
             } finally {
                 isRefreshing.set(false)
                 response?.close()

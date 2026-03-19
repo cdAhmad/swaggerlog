@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "ComposeBase"
 
-include(":swiggerlog")
+//include(":swiggerlog")
+include(":swiglog")
