@@ -148,6 +148,7 @@ class SwiggerLoggingInterceptor constructor(
 
         val response = chain.proceed(request)
         val duration = System.currentTimeMillis() - startTime
+        val msgList = mutableListOf<String>()
 
         // 记录响应信息
         try {
@@ -167,12 +168,11 @@ class SwiggerLoggingInterceptor constructor(
                     bodyString = buffer.clone().readString(charset)
                 }
             }
-            // 分段打印长日志以避免logcat截断
-            printLongLog(
-                "<- ${request.method} ${request.url} ${response.code} ($duration ms) ${response.message}",
-                currentTag
-            )
-            printLongLog("<- Swagger: $swaggerSummary", currentTag)
+            //返回信息描述
+            msgList.add("<- ${request.method} ${request.url} ${response.code} ($duration ms) ${response.message}")
+
+            //接口描述
+            msgList.add("<- Swagger: $swaggerSummary")
             //debug 打印请求头
             val jsonObject = JsonObject()
             request.headers.forEach {
@@ -182,25 +182,26 @@ class SwiggerLoggingInterceptor constructor(
                     jsonObject.add(it.first, JsonPrimitive(it.second))
                 }
             }.let {
-                printLongLog("->Request Header:", currentTag)
-                printLongLog(jsonObject.toString(), currentTag)
+                msgList.add("->Request Header:")
+                msgList.add(jsonObject.toString())
             }
             // 打印请求体
             if (requestBodySummary.startsWith("<")) {
-                printLongLog("-> Request Body: $requestBodySummary", currentTag)
+                msgList.add("-> Request Body: $requestBodySummary")
             } else if (requestBodySummary.isEmpty()) {
-                printLongLog("-> Request Body: null", currentTag)
+
+                msgList.add("-> Request Body: null")
             } else {
-                printLongLog("-> Request Body:", currentTag)
-                printLongLog(requestBodySummary, currentTag)
+                msgList.add("-> Request Body:")
+                msgList.add(requestBodySummary)
                 if (deobfus) {
                     swaggerDoc?.tripeDesc()?.takeIf {
                         it.isNotEmpty()
                     }?.let {
                         val deobfuscatedJson =
                             ObfuscateHelper.deobfuscateJson(requestBodySummary, it, format)
-                        printLongLog("-> Request Body: (Deobfuscated):", currentTag)
-                        printLongLog(deobfuscatedJson, currentTag)
+                        msgList.add("-> Request Body: (Deobfuscated):")
+                        msgList.add(deobfuscatedJson)
 
                     }
                 }
@@ -209,21 +210,23 @@ class SwiggerLoggingInterceptor constructor(
 
             // 打印返回
             if (bodyString.isNotEmpty()) {
-                printLongLog("<- Response Body", currentTag)
-                printLongLog(bodyString, currentTag)
+                msgList.add("<- Response Body:")
+                msgList.add(bodyString)
                 if (deobfus) {
                     swaggerDoc?.tripeDesc()?.takeIf {
                         it.isNotEmpty()
                     }?.let {
                         val deobfuscatedJson =
                             ObfuscateHelper.deobfuscateJson(bodyString, it, format)
-                        printLongLog("<- Response Body (Deobfuscated):", currentTag)
-                        printLongLog(deobfuscatedJson, currentTag)
+                        msgList.add("<- Response Body (Deobfuscated):")
+                        msgList.add(deobfuscatedJson)
                     }
-
                 }
-
             }
+            msgList.forEach {
+                printLongLog( currentTag, it)
+            }
+
         } catch (e: Exception) {
             e.printStackTrace()
             log(1, currentTag, "<- Error reading response body")
