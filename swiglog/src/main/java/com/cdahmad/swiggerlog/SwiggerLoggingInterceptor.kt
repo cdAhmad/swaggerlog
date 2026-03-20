@@ -201,7 +201,14 @@ class SwiggerLoggingInterceptor constructor(
                         val deobfuscatedJson =
                             ObfuscateHelper.deobfuscateJson(requestBodySummary, it, format)
                         msgList.add("-> Request Body: (Deobfuscated):")
-                        msgList.add(deobfuscatedJson)
+                        if (format) {
+                            deobfuscatedJson.split("\n").forEach {
+                                msgList.add(it)
+                            }
+                        } else {
+                            msgList.add(deobfuscatedJson)
+                        }
+
 
                     }
                 }
@@ -219,7 +226,13 @@ class SwiggerLoggingInterceptor constructor(
                         val deobfuscatedJson =
                             ObfuscateHelper.deobfuscateJson(bodyString, it, format)
                         msgList.add("<- Response Body (Deobfuscated):")
-                        msgList.add(deobfuscatedJson)
+                        if (format) {
+                            deobfuscatedJson.split("\n").forEach {
+                                msgList.add(it)
+                            }
+                        } else {
+                            msgList.add(deobfuscatedJson)
+                        }
                     }
                 }
             }
@@ -235,23 +248,13 @@ class SwiggerLoggingInterceptor constructor(
         return response
     }
 
-    private fun printLongLog(message: String, tag: String) {
-        // 先按换行符分割，保证每行 JSON 完整
-        val lines = message.split("\n")
-        val maxLength = 3000
-
-        for (line in lines) {
-            if (line.length <= maxLength) {
-                // 整行能放下，直接打印
-                log(0, tag, line)
-            } else {
-                // 单行过长（如超长数组/字符串），再按 maxLength 分段
-                var index = 0
-                while (index < line.length) {
-                    val endIndex = (index + maxLength).coerceAtMost(line.length)
-                    log(0, tag, line.substring(index, endIndex))
-                    index += maxLength
-                }
+    private fun printLongLog(msg: String, tag: String) {
+        val LOG_MAX_LENGTH = 3000
+        if (msg.length <= LOG_MAX_LENGTH) {
+            log(0, tag, msg)
+        } else {
+            msg.chunked(LOG_MAX_LENGTH).forEachIndexed { index, chunk ->
+                log(0, tag, chunk)
             }
         }
     }
