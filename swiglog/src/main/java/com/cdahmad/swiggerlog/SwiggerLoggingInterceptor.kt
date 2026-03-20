@@ -40,19 +40,18 @@ import kotlin.time.Duration.Companion.hours
  * */
 
 fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
-    netLogSwitch: Boolean,
+    filter: Boolean,
     format: Boolean = false,
     url: String, cacheFile: () -> File?,
     log: (Int, String, String) -> Unit
 ): OkHttpClient.Builder {
-    if (netLogSwitch.not()) {
-        return this
-    }
+
     addInterceptor(
         SwiggerLoggingInterceptor(
             url,
             "${url}v2/api-docs",
             true,
+            filter,
             format,
             cacheFile,
             log
@@ -66,6 +65,7 @@ class SwiggerLoggingInterceptor constructor(
     val baseUrl: String,
     val swaggerDocUrl: String,
     val deobfus: Boolean,
+    val filter: Boolean,
     val format: Boolean = false,
     val cacheFile: () -> File?,
     val log: (Int, String, String) -> Unit
@@ -199,7 +199,7 @@ class SwiggerLoggingInterceptor constructor(
                         it.isNotEmpty()
                     }?.let {
                         val deobfuscatedJson =
-                            ObfuscateHelper.deobfuscateJson(requestBodySummary, it, format)
+                            ObfuscateHelper.deobfuscateJson(requestBodySummary, it, format, filter)
                         msgList.add("-> Request Body: (Deobfuscated):")
                         if (format) {
                             deobfuscatedJson.jsonFormatString().forEach {
@@ -224,7 +224,7 @@ class SwiggerLoggingInterceptor constructor(
                         it.isNotEmpty()
                     }?.let {
                         val deobfuscatedJson =
-                            ObfuscateHelper.deobfuscateJson(bodyString, it, format)
+                            ObfuscateHelper.deobfuscateJson(bodyString, it, format, filter)
                         msgList.add("<- Response Body (Deobfuscated):")
                         if (format) {
                             deobfuscatedJson.jsonFormatString().forEach {
@@ -533,43 +533,82 @@ data class SwaggerDoc(
 
 private object ObfuscateHelper {
 
+    // 白名单：始终保留的字段（反混淆后的名字）
+    private val WHITELISTED_KEYS = setOf("data", "code", "msg")
+
+    /**
+     * 反混淆 JSON 并可选过滤字段
+     *
+     * @param obfuscatedJson 混淆后的 JSON 字符串
+     * @param keyMapping 映射表：obfuscatedKey -> (originalKey, description)
+     * @param format 是否格式化输出（pretty print）
+     * @param filter 是否启用过滤：
+     *               - true: 仅保留 data/code/msg + mapping 中存在的字段
+     *               - false: 输出所有字段（仅反混淆）
+     */
     fun deobfuscateJson(
         obfuscatedJson: String,
-        keyMapping: Map<String, Pair<String, String>>, format: Boolean
+        keyMapping: Map<String, Pair<String, String>>,
+        format: Boolean,
+        filter: Boolean
     ): String {
         val reader = JsonReader(StringReader(obfuscatedJson))
         val writer = StringWriter()
-        val jsonWriter = JsonWriter(writer).apply { setSerializeNulls(true) }
-        process(reader, jsonWriter, keyMapping)
-        if (format) {
+        val jsonWriter = JsonWriter(writer).apply {
+            setSerializeNulls(true)
+        }
+
+        try {
+            process(reader, jsonWriter, keyMapping, filter)
+        } finally {
+            reader.close()
+            jsonWriter.close()
+        }
+
+        val rawResult = writer.toString()
+
+        return if (format) {
             try {
-                // 使用 Gson 格式化
                 val gson = Gson()
-                val gsonFormatted = GsonBuilder().setPrettyPrinting().create()
-                val element: JsonElement = gson.fromJson(writer.toString(), JsonElement::class.java)
-                return gsonFormatted.toJson(element)
+                val prettyGson = GsonBuilder().setPrettyPrinting().create()
+                val element: JsonElement = gson.fromJson(rawResult, JsonElement::class.java)
+                prettyGson.toJson(element)
             } catch (e: Exception) {
-                return writer.toString()
+                // 格式化失败则返回原始结果
+                rawResult
             }
         } else {
-            return writer.toString()
+            rawResult
         }
     }
 
     private fun process(
         reader: JsonReader,
         writer: JsonWriter,
-        mapping: Map<String, Pair<String, String>>
+        mapping: Map<String, Pair<String, String>>,
+        filter: Boolean
     ) {
         when (reader.peek()) {
             JsonToken.BEGIN_OBJECT -> {
                 reader.beginObject()
                 writer.beginObject()
                 while (reader.hasNext()) {
-                    val name = reader.nextName()
-                    val originalName = mapping[name]?.first ?: name
+                    val obfuscatedName = reader.nextName()
+                    val originalName = mapping[obfuscatedName]?.first ?: obfuscatedName
+
+                    // ✅ 关键过滤逻辑
+                    if (filter) {
+                        val isInWhitelist = originalName in WHITELISTED_KEYS
+                        val isInMapping = mapping.containsKey(obfuscatedName)
+
+                        if (!isInWhitelist && !isInMapping) {
+                            reader.skipValue()
+                            continue
+                        }
+                    }
+
                     writer.name(originalName)
-                    process(reader, writer, mapping)
+                    process(reader, writer, mapping, filter)
                 }
                 reader.endObject()
                 writer.endObject()
@@ -579,21 +618,33 @@ private object ObfuscateHelper {
                 reader.beginArray()
                 writer.beginArray()
                 while (reader.hasNext()) {
-                    process(reader, writer, mapping)
+                    process(reader, writer, mapping, filter)
                 }
                 reader.endArray()
                 writer.endArray()
             }
 
-            JsonToken.STRING -> writer.value(reader.nextString())
-            JsonToken.NUMBER -> writer.value(reader.nextString().toBigDecimalOrNull()) // 保持精度
-            JsonToken.BOOLEAN -> writer.value(reader.nextBoolean())
+            JsonToken.STRING -> {
+                writer.value(reader.nextString())
+            }
+
+            JsonToken.NUMBER -> {
+                val numStr = reader.nextString()
+                writer.value(numStr)
+            }
+
+            JsonToken.BOOLEAN -> {
+                writer.value(reader.nextBoolean())
+            }
+
             JsonToken.NULL -> {
                 reader.nextNull()
                 writer.nullValue()
             }
 
-            else -> reader.skipValue()
+            else -> {
+                reader.skipValue()
+            }
         }
     }
 }
