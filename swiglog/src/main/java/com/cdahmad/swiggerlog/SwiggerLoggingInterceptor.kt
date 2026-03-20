@@ -202,7 +202,7 @@ class SwiggerLoggingInterceptor constructor(
                             ObfuscateHelper.deobfuscateJson(requestBodySummary, it, format)
                         msgList.add("-> Request Body: (Deobfuscated):")
                         if (format) {
-                            deobfuscatedJson.split("\n").forEach {
+                            deobfuscatedJson.jsonFormatString().forEach {
                                 msgList.add(it)
                             }
                         } else {
@@ -227,7 +227,7 @@ class SwiggerLoggingInterceptor constructor(
                             ObfuscateHelper.deobfuscateJson(bodyString, it, format)
                         msgList.add("<- Response Body (Deobfuscated):")
                         if (format) {
-                            deobfuscatedJson.split("\n").forEach {
+                            deobfuscatedJson.jsonFormatString().forEach {
                                 msgList.add(it)
                             }
                         } else {
@@ -248,8 +248,41 @@ class SwiggerLoggingInterceptor constructor(
         return response
     }
 
+    val LOG_MAX_LENGTH = 3000
+    private fun String.jsonFormatString(): List<String> {
+        val msgList = mutableListOf<String>()
+        val lines = split("\n")
+
+        var currentChunk = StringBuilder()
+
+        for (line in lines) {
+            // 如果加上新行会超限，则先打印当前 chunk
+            if (currentChunk.length + line.length + 1 > LOG_MAX_LENGTH) {
+                if (currentChunk.isNotEmpty()) {
+                    msgList.add(currentChunk.toString())
+                    currentChunk.clear()
+                }
+                // 如果单行就超长，强制分段（按字符）
+                if (line.length > LOG_MAX_LENGTH) {
+                    line.chunked(LOG_MAX_LENGTH).forEach { part ->
+                        msgList.add(part)
+                    }
+                    continue
+                }
+            }
+            currentChunk.append(line).append("\n")
+        }
+
+        // 打印最后一块
+        if (currentChunk.isNotEmpty()) {
+            msgList.add(currentChunk.toString())
+        }
+
+        return msgList
+    }
+
     private fun printLongLog(msg: String, tag: String) {
-        val LOG_MAX_LENGTH = 3000
+
         if (msg.length <= LOG_MAX_LENGTH) {
             log(0, tag, msg)
         } else {
@@ -518,9 +551,7 @@ private object ObfuscateHelper {
             } catch (e: Exception) {
                 return writer.toString()
             }
-
         } else {
-
             return writer.toString()
         }
     }
