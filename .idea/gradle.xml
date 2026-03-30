@@ -11,7 +11,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/cop" />
-            <option value="$PROJECT_DIR$/swiglog" />
+            <option value="$PROJECT_DIR$/swaglog" />
           </set>
         </option>
       </GradleProjectSettings>

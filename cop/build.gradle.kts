@@ -56,4 +56,5 @@ dependencies {
     // 如果需要 ViewModel 集成
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose")
     implementation("androidx.activity:activity-compose")
+    debugImplementation("com.github.cdAhmad:swagger-interceptor:1.0.7.6")
 }

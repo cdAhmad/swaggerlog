@@ -45,7 +45,6 @@ fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
     url: String, cacheFile: () -> File?,
     log: (Int, String, String) -> Unit
 ): OkHttpClient.Builder {
-
     addInterceptor(
         SwiggerLoggingInterceptor(
             url,
@@ -60,8 +59,16 @@ fun OkHttpClient.Builder.addSwiggerLoggingInterceptor(
     return this
 }
 
-// 自定义线程安全的日志拦截器
-class SwiggerLoggingInterceptor constructor(
+ /**
+  * @param baseUrl 基础 URL，用于获取 Swagger 文档
+  * @param swaggerDocUrl Swagger 文档 URL
+  * @param deobfus 是否反混淆 JSON
+  * @param filter 是否过滤请求和响应
+  * @param format 是否格式化输出
+  * @param cacheFile 文件工厂，用于获取缓存文件
+  * @param log 日志记录函数，用于记录请求和响应
+  * */
+class SwiggerLoggingInterceptor @JvmOverloads constructor(
     val baseUrl: String,
     val swaggerDocUrl: String,
     val deobfus: Boolean,

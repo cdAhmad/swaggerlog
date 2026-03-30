@@ -1,4 +1,29 @@
-# 1. swagger 接口接口文档 怎么接入到 ai 中
-# 2. 是否有有 mcp，skill
-# 3. 怎么用到实际 app 开发中
-# 4. 或者 其他api 文档可以 用 ai
+
+
+#  swagger log
+
+
+
+#  1.引入项目
+```kotlin
+implementation("com.github.cdAhmad:swagger-interceptor:1.0.7.6")
+
+```
+# 2.添加拦截器
+```kotlin
+val swaggerInterceptor = SwiggerLoggingInterceptor(
+    baseUrl = "https://api.github.com",
+      swaggerDocUrl="/v2/api",
+          deobfus=true,
+    filter=true,
+    format=true,
+    cacheFile = { File(context.cacheDir, "swagger.json") },
+    log = { level, message, error ->{
+        when (level) {
+            0 -> Log.d("SwiggerLoggingInterceptor", message)
+            1 -> Log.e("SwiggerLoggingInterceptor", message, error)
+        }
+    }}
+)
+
+```
