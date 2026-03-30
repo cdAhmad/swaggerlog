@@ -18,7 +18,7 @@ val swaggerInterceptor = SwiggerLoggingInterceptor(
     filter=true,
     format=true,
     cacheFile = { File(context.cacheDir, "swagger.json") },
-    log = { level, tag, msg, error ->{
+    log = { level, tag, msg ->{
         when (level) {
             0 -> Log.d(tag, msg)
             1 -> Log.e(tag, msg)
