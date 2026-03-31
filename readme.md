@@ -30,49 +30,7 @@ implementation("com.github.cdAhmad:swagger-interceptor:1.1.0")
 
 #### 🚀 使用示例
 
-##### 1. 基本用法
-```kotlin
-val swaggerInterceptor = SwiggerLoggingInterceptor(
-    baseUrl = "https://api.example.com",
-    swaggerDocUrl = "/v2/api-docs",
-    deobfus = true,  // 启用JSON反混淆
-    filter = true,   // 启用日志过滤
-    format = true    // 启用日志格式化
-)
-```
-
-##### 2. 自定义配置
-```kotlin
-val customInterceptor = SwiggerLoggingInterceptor(
-    baseUrl = "https://api.example.com",
-    swaggerDocUrl = "/swagger.json",
-    deobfus = true,
-    filter = true,
-    format = true,
-    cacheFile = { File(context.cacheDir, "swagger.json") },  // 自定义缓存文件路径
-    log = { level, tag, msg ->  // 自定义日志记录
-        when (level) {
-            0 -> Log.d(tag, msg)  // Debug级别
-            1 -> Log.e(tag, msg)  // Error级别
-        }
-    }
-)
-```
-
-##### 3. 使用扩展函数
-```kotlin
-val okHttpClient = OkHttpClient.Builder()
-    .addSwiggerLoggingInterceptor(
-        filter = true,
-        format = true,
-        url = "https://api.example.com",
-        cacheFile = { File(context.cacheDir, "swagger.json") },
-        log = { level, tag, msg -> Log.d(tag, msg) }
-    )
-    .build()
-```
-
-##### 4. 区分Debug和Release环境（推荐）
+##### 1. 区分Debug和Release环境（推荐）
 
 **创建LogHelper**
 
@@ -113,7 +71,7 @@ object LogHelper {
 ```
 
 **使用LogHelper**
-```kotlin
+```
 val okHttpClient = OkHttpClient.Builder()
     .apply {
         // 仅在Debug环境下添加拦截器
@@ -124,6 +82,48 @@ val okHttpClient = OkHttpClient.Builder()
             log = { level, tag, msg -> Log.d(tag, msg) }
         )?.let { addInterceptor(it) }
     }
+    .build()
+```
+
+##### 2. 基本用法
+```kotlin
+val swaggerInterceptor = SwiggerLoggingInterceptor(
+    baseUrl = "https://api.example.com",
+    swaggerDocUrl = "/v2/api-docs",
+    deobfus = true,  // 启用JSON反混淆
+    filter = true,   // 启用日志过滤
+    format = true    // 启用日志格式化
+)
+```
+
+##### 3. 自定义配置
+```kotlin
+val customInterceptor = SwiggerLoggingInterceptor(
+    baseUrl = "https://api.example.com",
+    swaggerDocUrl = "/swagger.json",
+    deobfus = true,
+    filter = true,
+    format = true,
+    cacheFile = { File(context.cacheDir, "swagger.json") },  // 自定义缓存文件路径
+    log = { level, tag, msg ->  // 自定义日志记录
+        when (level) {
+            0 -> Log.d(tag, msg)  // Debug级别
+            1 -> Log.e(tag, msg)  // Error级别
+        }
+    }
+)
+```
+
+##### 4. 使用扩展函数
+```kotlin
+val okHttpClient = OkHttpClient.Builder()
+    .addSwiggerLoggingInterceptor(
+        filter = true,
+        format = true,
+        url = "https://api.example.com",
+        cacheFile = { File(context.cacheDir, "swagger.json") },
+        log = { level, tag, msg -> Log.d(tag, msg) }
+    )
     .build()
 ```
 
@@ -160,7 +160,9 @@ SwaggerLog/
 
 欢迎提交Issue和Pull Request来帮助改进这个项目！
 
-## 📧 联系方式
+## 📧 联系方式与资源
+
+**GitHub仓库**：[SwaggerLog](https://github.com/cdAhmad/SwaggerLog)（公开仓库，欢迎Star和Fork）
 
 如有问题或建议，可以通过以下方式联系：
 - GitHub Issues: [提交问题](https://github.com/cdAhmad/SwaggerLog/issues)
