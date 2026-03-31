@@ -13,12 +13,12 @@ SwaggerLog是一个功能强大的Android OkHttp日志拦截器库，支持Swagg
 
 ### 推荐：仅Debug环境使用
 ```kotlin
-debugImplementation("com.github.cdAhmad:swagger-interceptor:1.1.0")
+debugImplementation("com.github.cdAhmad:swaggerlog:1.1.1")
 ```
 
 ### 全局使用（不推荐）
 ```kotlin
-implementation("com.github.cdAhmad:swagger-interceptor:1.1.0")
+implementation("com.github.cdAhmad:swaggerlog:1.1.1")
 ```
 
 ## 基本用法
@@ -58,7 +58,7 @@ object LogHelper {
         cacheFile: () -> File,
         log: (level: Int, tag: String, msg: String) -> Unit
     ): Interceptor? {
-       return null  // Release环境下不返回拦截器
+        return null  // Release环境下不返回拦截器
     }
 }
 ```

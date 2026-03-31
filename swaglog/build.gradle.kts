@@ -25,7 +25,7 @@ publishing {
     publications {
         create<MavenPublication>("release") {
             groupId = "com.github.cdAhmad"
-            artifactId = "swagger-interceptor"
+            artifactId = "swaggerlog"
             version = "1.1.1"
 
             // ✅ 修正：使用 "java" 而不是 "release"
