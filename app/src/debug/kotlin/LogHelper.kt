@@ -1,4 +1,4 @@
-import com.cdahmad.swiggerlog.SwiggerLoggingInterceptor
+import com.cdahmad.swaggerlog.SwaggerLoggingInterceptor
 import okhttp3.Interceptor
 import java.io.File
 
@@ -11,7 +11,7 @@ object LogHelper {
         cacheFile: () -> File,
         log: (level: Int, tag: String, msg: String) -> Unit
     ): Interceptor? {
-        return SwiggerLoggingInterceptor(
+        return SwaggerLoggingInterceptor(
             baseUrl = apiUrl,
             swaggerDocUrl = "${apiUrl}v2/api-docs",
             deobfus = true,

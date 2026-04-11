@@ -20,7 +20,7 @@
 
 **推荐方式：仅在Debug环境使用**
 ```kotlin
-debugImplementation("com.github.cdAhmad:swaggerlog:1.1.0")
+debugImplementation("com.github.cdAhmad:swaggerlog:1.1.2")
 ```
 
 **全局使用（不推荐）**
@@ -43,7 +43,7 @@ object LogHelper {
         cacheFile: () -> File,
         log: (level: Int, tag: String, msg: String) -> Unit
     ): Interceptor? {
-        return SwiggerLoggingInterceptor(
+        return SwaggerLoggingInterceptor(
             baseUrl = apiUrl,
             swaggerDocUrl = "${apiUrl}v2/api-docs",
             deobfus = true,
@@ -89,7 +89,7 @@ val okHttpClient = OkHttpClient.Builder()
 
 ##### 2. 基本用法
 ```kotlin
-val swaggerInterceptor = SwiggerLoggingInterceptor(
+val swaggerInterceptor = SwaggerLoggingInterceptor(
     baseUrl = "https://api.example.com",
     swaggerDocUrl = "/v2/api-docs",
     deobfus = true,  // 启用JSON反混淆
@@ -100,7 +100,7 @@ val swaggerInterceptor = SwiggerLoggingInterceptor(
 
 ##### 3. 自定义配置
 ```kotlin
-val customInterceptor = SwiggerLoggingInterceptor(
+val customInterceptor = SwaggerLoggingInterceptor(
     baseUrl = "https://api.example.com",
     swaggerDocUrl = "/swagger.json",
     deobfus = true,
@@ -119,7 +119,7 @@ val customInterceptor = SwiggerLoggingInterceptor(
 ##### 4. 使用扩展函数
 ```kotlin
 val okHttpClient = OkHttpClient.Builder()
-    .addSwiggerLoggingInterceptor(
+    .addSwaggerLoggingInterceptor(
         filter = true,
         format = true,
         url = "https://api.example.com",
@@ -134,8 +134,8 @@ val okHttpClient = OkHttpClient.Builder()
 ```
 SwaggerLog/
 ├── swaglog/                  # OkHttp日志拦截器
-│   ├── src/main/java/com/cdahmad/swiggerlog/
-│   │   └── SwiggerLoggingInterceptor.kt
+│   ├── src/main/java/com/cdahmad/swaggerlog/
+│   │   └── SwaggerLoggingInterceptor.kt
 ├── app/                      # 示例应用
 │   ├── src/
 │   │   ├── debug/kotlin/

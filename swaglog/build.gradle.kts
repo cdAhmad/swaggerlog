@@ -26,7 +26,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.github.cdAhmad"
             artifactId = "swaggerlog"
-            version = "1.1.1"
+            version = "1.1.2"
 
             // ✅ 修正：使用 "java" 而不是 "release"
             from(components["java"])   // ←←← 关键修复！
