@@ -7,19 +7,10 @@ espressoCore = "3.7.0"
 appcompat = "1.7.1"
 kotlinxCoroutinesCore = "1.6.4"
 material = "1.13.0"
-retrofit = "2.11.0"
-loggingInterceptor = "4.12.0"
-openapiGenerator = "7.20.0"
 jetbrainsKotlinJvm = "2.0.10"
 androidxComposeBom = "2026.02.01"
 kotlin = "2.0.21"
-navigationCompose = "2.9.7"
-runner = "1.0.2"
-espressoCoreVersion = "3.0.2"
-appcompatV7 = "28.0.0"
-uiToolingPreview = "1.10.5"
-uiTooling = "1.10.5"
-swaggerlog = "1.1.1"
+swaggerlog = "1.1.2"
 
 [libraries]
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
@@ -32,20 +23,10 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "loggingInterceptor" }
-
-runner = { group = "com.android.support.test", name = "runner", version.ref = "runner" }
-espresso-core = { group = "com.android.support.test.espresso", name = "espresso-core", version.ref = "espressoCoreVersion" }
-appcompat-v7 = { group = "com.android.support", name = "appcompat-v7", version.ref = "appcompatV7" }
-
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-openapi-generator = { id = "org.openapi.generator", version.ref = "openapiGenerator" }
 jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 koltin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 

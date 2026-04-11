@@ -1,5 +1,3 @@
-import com.android.tools.r8.internal.ok
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.koltin.android)
@@ -34,10 +32,10 @@ android {
 
 dependencies {
     testImplementation(libs.junit)
-    androidTestImplementation(libs.runner)
-    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 
     implementation("com.squareup.okhttp3:okhttp:4.12.1")
-    debugImplementation("com.github.cdAhmad:swaggerlog:1.1.1")
+    debugImplementation("com.github.cdAhmad:swaggerlog:${libs.versions.swaggerlog}")
     debugImplementation(project(":swaglog"))
 }
