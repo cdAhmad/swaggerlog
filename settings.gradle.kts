@@ -29,4 +29,4 @@ dependencyResolutionManagement {
 rootProject.name = "ComposeBase"
 
 include(":swaglog")
-include(":app")
+//include(":app")
