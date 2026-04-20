@@ -1,31 +1,38 @@
 ---
 name: swaggerlog
-description: Android OkHttp 日志拦截器库，支持 Swagger 文档集成、JSON 反混淆和格式化日志输出。用于在 Android 项目中集成网络请求日志调试功能，支持 Debug/Release 环境区分、自动缓存 Swagger 文档、大文件分段处理。
+description: >
+  Android/JVM OkHttp 日志拦截器库，支持 Swagger 文档集成、JSON 反混淆与格式化日志输出。
+  在以下场景触发：
+  (1) 在 Android 或 JVM 项目中集成 SwaggerLog 网络日志拦截器，
+  (2) 配置 Swagger 文档自动拉取/缓存、JSON 字段反混淆、日志格式化或过滤，
+  (3) 实现 Debug/Release 环境隔离，避免 Release 包携带日志拦截器，
+  (4) 修改 SwaggerLoggingInterceptor 源码、调整日志输出格式或缓存策略，
+  (5) 处理 Swagger v2 api-docs 字段映射规则、大文件分段、多 build type 适配。
 ---
 
 # SwaggerLog
 
-功能强大的 Android OkHttp 日志拦截器，简化网络调试。
+纯 Kotlin/JVM 的 OkHttp 日志拦截器，通过 Swagger `v2/api-docs` 自动解析字段映射，实现 JSON 反混淆与格式化输出。
 
-## 快速开始
+## 快速集成
 
-### 1. 添加依赖
-
-在 `build.gradle.kts` 中添加 JitPack 仓库和依赖：
+### 1. 添加 JitPack 仓库与依赖
 
 ```kotlin
+// settings.gradle.kts
 repositories {
     maven { url = uri("https://jitpack.io") }
 }
 
+// build.gradle.kts
 dependencies {
-    debugImplementation("com.github.cdAhmad:swaggerlog:1.1.3")
+    debugImplementation("com.github.cdAhmad:swaggerlog:1.2.0")
 }
 ```
 
-### 2. 创建 LogHelper（推荐做法）
+### 2. 创建环境隔离的 LogHelper
 
-**Debug 版本** (`app/src/debug/kotlin/LogHelper.kt`)：
+**Debug** (`app/src/debug/kotlin/LogHelper.kt`)：
 
 ```kotlin
 import com.cdahmad.swaggerlog.SwaggerLoggingInterceptor
@@ -35,24 +42,22 @@ import java.io.File
 object LogHelper {
     fun getInterceptor(
         apiUrl: String,
-        format: Boolean,
+        format: Boolean = true,
         cacheFile: () -> File,
         log: (level: Int, tag: String, msg: String) -> Unit
-    ): Interceptor? {
-        return SwaggerLoggingInterceptor(
-            baseUrl = apiUrl,
-            swaggerDocUrl = "${apiUrl}v2/api-docs",
-            deobfus = true,    // 启用 JSON 反混淆
-            filter = true,     // 启用日志过滤
-            format = format,   // 启用格式化输出
-            cacheFile = cacheFile,
-            log = log
-        )
-    }
+    ): Interceptor = SwaggerLoggingInterceptor(
+        baseUrl = apiUrl,
+        swaggerDocUrl = "${apiUrl}v2/api-docs",
+        deobfus = true,
+        filter = true,
+        format = format,
+        cacheFile = cacheFile,
+        log = log
+    )
 }
 ```
 
-**Release 版本** (`app/src/release/java/LogHelper.kt`)：
+**Release / Staging / Beta** (`app/src/release/kotlin/LogHelper.kt`)：
 
 ```kotlin
 import okhttp3.Interceptor
@@ -64,13 +69,11 @@ object LogHelper {
         format: Boolean,
         cacheFile: () -> File,
         log: (level: Int, tag: String, msg: String) -> Unit
-    ): Interceptor? {
-        return null  // Release 环境不记录日志
-    }
+    ): Interceptor? = null
 }
 ```
 
-### 3. 集成到 OkHttpClient
+### 3. 接入 OkHttpClient
 
 ```kotlin
 val okHttpClient = OkHttpClient.Builder()
@@ -78,64 +81,74 @@ val okHttpClient = OkHttpClient.Builder()
         LogHelper.getInterceptor(
             apiUrl = "https://api.example.com",
             format = true,
-            cacheFile = { File(context.cacheDir, "swagger.json") },
+            cacheFile = { File(context.cacheDir, "swagger_cache") },
             log = { level, tag, msg -> Log.d(tag, msg) }
         )?.let { addInterceptor(it) }
     }
     .build()
 ```
 
-## 核心功能
+## API 参数
 
-| 功能 | 说明 |
-|------|------|
-| 格式化日志 | 请求/响应日志格式化输出 |
-| JSON 反混淆 | 自动还原混淆后的 JSON 字段名 |
-| Swagger 集成 | 自动获取并缓存 Swagger 文档 |
-| 本地缓存 | 24 小时 TTL 缓存 Swagger 文档 |
-| 大文件处理 | 超过 1MB 自动分段，避免 OOM |
-
-## SwaggerLoggingInterceptor 参数
+### SwaggerLoggingInterceptor
 
 ```kotlin
-class SwaggerLoggingInterceptor(
-    val baseUrl: String,           // API 基础 URL
-    val swaggerDocUrl: String,     // Swagger 文档 URL
-    val deobfus: Boolean,          // 是否反混淆 JSON
-    val filter: Boolean,           // 是否过滤日志
-    val format: Boolean = false,   // 是否格式化输出
-    val cacheFile: () -> File?,    // 缓存文件提供者
-    val log: (Int, String, String) -> Unit  // 日志回调
-)
+class SwaggerLoggingInterceptor @JvmOverloads constructor(
+    val baseUrl: String,                        // API 基础 URL，用于拼接在线文档链接
+    val swaggerDocUrl: String,                  // 完整的 Swagger v2/api-docs 地址
+    val deobfus: Boolean,                       // 是否根据 Swagger definitions 反混淆字段名
+    val filter: Boolean,                        // 是否过滤未映射字段（始终保留 code/msg/data）
+    val format: Boolean = false,                // 是否 pretty print 格式化 JSON
+    val cacheFile: () -> File?,                 // 返回缓存目录的 lambda
+    val log: (Int, String, String) -> Unit      // 日志回调：level(0=Debug,1=Error), tag, msg
+) : Interceptor
 ```
 
-## 扩展函数用法
+### 扩展函数
 
 ```kotlin
-val client = OkHttpClient.Builder()
-    .addSwaggerLoggingInterceptor(
-        filter = true,
-        format = true,
-        url = "https://api.example.com",
-        cacheFile = { File(context.cacheDir, "swagger.json") },
-        log = { level, tag, msg -> Log.d(tag, msg) }
-    )
-    .build()
+fun OkHttpClient.Builder.addSwaggerLoggingInterceptor(
+    filter: Boolean,
+    format: Boolean = false,
+    url: String,                                 // 对应 baseUrl，自动拼接 v2/api-docs
+    cacheFile: () -> File?,
+    log: (Int, String, String) -> Unit
+): OkHttpClient.Builder
 ```
 
-## 多 BuildType 支持
+## 核心机制
 
-如有 staging、beta 等环境，在对应目录创建 LogHelper：
+### 字段反混淆规则
 
+从 Swagger `definitions` 各属性的 `description` 字段提取映射：
+
+```json
+"definitions": {
+  "UserVO": {
+    "properties": {
+      "a": { "type": "string", "description": "name: 用户名" },
+      "b": { "type": "integer", "description": "age: 年龄" }
+    }
+  }
+}
 ```
-app/src/
-├── debug/kotlin/LogHelper.kt     # 启用日志
-├── staging/java/LogHelper.kt     # 复用 Release 版本
-├── beta/java/LogHelper.kt        # 复用 Release 版本
-└── release/java/LogHelper.kt     # 禁用日志
+
+`description` 以 `:` 分割，第一段为原始字段名。反混淆后输出：
+
+```json
+{"name":"张三","age":25}
 ```
 
-## 日志输出示例
+白名单字段 `code`、`msg`、`data` 始终保留，不受 filter 影响。
+
+### 缓存策略
+
+- 内存 + 文件双级缓存，默认 TTL 24 小时
+- 首次构造时在后台 IO 协程中静默拉取 Swagger 文档
+- 过期后触发后台刷新，读取逻辑永不阻塞主线程
+- 缓存文件路径：`{cacheFile()}/swagger_v2_api_docs.json`
+
+### 日志输出格式
 
 ```
 OkHttp_000001  -> GET https://api.example.com/user/info
@@ -147,9 +160,22 @@ OkHttp_000001  <- Response Body: {"a":"张三","b":25}
 OkHttp_000001  <- Response Body (Deobfuscated): {"name":"张三","age":25}
 ```
 
-## 注意事项
+### 大文件保护
 
-- 仅通过 JitPack 分发，确保添加 JitPack 仓库
-- Debug 环境建议开启 `deobfus` 和 `format`
-- Release 环境务必返回 `null`，避免性能损耗
-- 缓存文件路径需有写入权限
+响应体超过 1MB 时输出 `<Response body too large (X bytes)>`，避免 OOM。
+
+## 源码修改要点
+
+- `SwaggerLoggingInterceptor.kt` 是单文件实现，位于 `swaglog/src/main/java/com/cdahmad/swaggerlog/`
+- `ObfuscateHelper.deobfuscateJson()` 使用 Gson `JsonReader/JsonWriter` 流式处理，支持嵌套对象与数组
+- `SwaggerDocCache` 为私有内部类，通过 `AtomicBoolean` 防止并发刷新，使用 `SupervisorJob` 隔离协程异常
+- 日志分段阈值 `LOG_MAX_LENGTH = 3000`，避免 logcat 截断
+- 项目发布到 JitPack，由 `jitpack.yml` 指定 `openjdk21`
+
+## 依赖
+
+```kotlin
+implementation("com.squareup.okhttp3:okhttp:4.12.0")
+implementation("com.google.code.gson:gson:2.13.2")
+implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+```
