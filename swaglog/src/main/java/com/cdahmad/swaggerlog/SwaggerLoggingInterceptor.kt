@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import com.google.gson.annotations.SerializedName
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
@@ -473,16 +474,16 @@ private class SwaggerDocCache(
     // 👇 缓存包装类（必须 public 或 internal 才能被 Gson 反序列化？建议加 @Keep 或使用 TypeAdapter）
     // 但若在 object 内部，Gson 默认可通过反射访问，通常没问题
     private data class SwaggerCacheWrapper(
-        val timestamp: Long,
-        val swaggerDoc: SwaggerDoc
+        @SerializedName("timestamp") val timestamp: Long,
+        @SerializedName("swaggerDoc") val swaggerDoc: SwaggerDoc
     )
 }
 
 // 数据类（保持不变）
 data class SwaggerDoc(
-    val swagger: String,
-    val paths: Map<String, Map<String, Operation>>,
-    val definitions: Map<String, Definition>? = null,
+    @SerializedName("swagger") val swagger: String,
+    @SerializedName("paths") val paths: Map<String, Map<String, Operation>>,
+    @SerializedName("definitions") val definitions: Map<String, Definition>? = null,
 ) {
     private var descTripeMap: MutableMap<String, Pair<String, String>>? = null
 
@@ -505,10 +506,13 @@ data class SwaggerDoc(
         return descTripeMap!! // 安全：上面已初始化
     }
 
-    data class Definition(val type: String, val properties: Map<String, Property>? = null) {
+    data class Definition(
+        @SerializedName("type") val type: String,
+        @SerializedName("properties") val properties: Map<String, Property>? = null
+    ) {
         data class Property(
-            val type: String?,
-            val description: String?,
+            @SerializedName("type") val type: String?,
+            @SerializedName("description") val description: String?,
         ) {
             fun desc(): String? {
                 return description?.split(":")?.get(0)?.trim()
@@ -517,14 +521,14 @@ data class SwaggerDoc(
     }
 
     data class Operation(
-        val tags: List<String>,
-        val summary: String,
-        val description: String,
-        val operationId: String,
-        val consumes: List<String>,
-        val produces: List<String>,
-        val parameters: List<Parameter>,
-        val deprecated: Boolean
+        @SerializedName("tags") val tags: List<String>,
+        @SerializedName("summary") val summary: String,
+        @SerializedName("description") val description: String,
+        @SerializedName("operationId") val operationId: String,
+        @SerializedName("consumes") val consumes: List<String>,
+        @SerializedName("produces") val produces: List<String>,
+        @SerializedName("parameters") val parameters: List<Parameter>,
+        @SerializedName("deprecated") val deprecated: Boolean
     ) {
 
         fun richSummary(baseUrl: String): String {
